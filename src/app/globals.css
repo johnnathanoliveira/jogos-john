@@ -1,0 +1,213 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================
+   Base
+   ============================================= */
+:root {
+  --bg-primary: #0a0a1a;
+  --bg-card: #12122a;
+  --accent-gold: #f59e0b;
+  --accent-glow: rgba(245, 158, 11, 0.5);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: white;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Evita zoom no iOS ao focar inputs */
+  touch-action: manipulation;
+}
+
+/* =============================================
+   Scrollbar customizada
+   ============================================= */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #1e1b4b;
+}
+::-webkit-scrollbar-thumb {
+  background: #4338ca;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6366f1;
+}
+
+/* =============================================
+   Utilitários customizados
+   ============================================= */
+@layer utilities {
+  /* Texto com efeito glow dourado */
+  .text-glow-gold {
+    text-shadow:
+      0 0 10px rgba(245, 158, 11, 0.8),
+      0 0 30px rgba(245, 158, 11, 0.5),
+      0 0 60px rgba(245, 158, 11, 0.3);
+  }
+
+  /* Texto com efeito glow branco */
+  .text-glow-white {
+    text-shadow:
+      0 0 10px rgba(255, 255, 255, 0.8),
+      0 0 30px rgba(255, 255, 255, 0.4);
+  }
+
+  /* Card com borda brilhante */
+  .card-glow {
+    box-shadow:
+      0 0 0 1px rgba(99, 102, 241, 0.3),
+      0 4px 24px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  /* Botão principal */
+  .btn-primary {
+    @apply bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-bold
+           rounded-xl px-6 py-3 transition-all duration-200
+           hover:from-yellow-300 hover:to-orange-400 hover:scale-105 hover:shadow-lg
+           active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100;
+  }
+
+  /* Botão secundário */
+  .btn-secondary {
+    @apply bg-white/10 text-white font-semibold rounded-xl px-6 py-3
+           border border-white/20 transition-all duration-200
+           hover:bg-white/20 hover:scale-105 active:scale-95
+           disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100;
+  }
+
+  /* Botão de perigo */
+  .btn-danger {
+    @apply bg-gradient-to-r from-red-500 to-rose-600 text-white font-bold
+           rounded-xl px-6 py-3 transition-all duration-200
+           hover:from-red-400 hover:to-rose-500 hover:scale-105 hover:shadow-lg
+           active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100;
+  }
+
+  /* Botão BINGO! especial */
+  .btn-bingo {
+    @apply bg-gradient-to-r from-yellow-400 via-orange-400 to-red-500 text-white font-black
+           rounded-2xl px-8 py-4 text-2xl uppercase tracking-widest
+           transition-all duration-200 shadow-lg
+           hover:from-yellow-300 hover:via-orange-300 hover:to-red-400 hover:scale-110 hover:shadow-2xl
+           active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100;
+  }
+
+  /* Input estilizado */
+  .input-dark {
+    @apply bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white
+           placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-yellow-400/60
+           focus:border-yellow-400/60 transition-all;
+  }
+}
+
+/* =============================================
+   Animação do globo de bingo
+   ============================================= */
+@keyframes globeStripe {
+  0%   { transform: translateX(-100%) skewX(-5deg); }
+  100% { transform: translateX(200%) skewX(-5deg); }
+}
+
+.globe-stripe {
+  animation: globeStripe 1.2s linear infinite;
+}
+
+/* Confetes */
+@keyframes confettiFall {
+  0%   { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg) scale(0.5); opacity: 0; }
+}
+
+.confetti-piece {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  top: -10px;
+  animation: confettiFall linear forwards;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Entrada suave para modais e overlays */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Número sorteado entrando */
+@keyframes numberPop {
+  0%   { transform: scale(0) rotate(-15deg); opacity: 0; }
+  50%  { transform: scale(1.3) rotate(5deg); opacity: 1; }
+  75%  { transform: scale(0.9) rotate(-2deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.animate-number-pop {
+  animation: numberPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Célula de cartela marcada */
+@keyframes cellMark {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+.animate-cell-mark {
+  animation: cellMark 0.3s ease-out forwards;
+}
+
+/* =============================================
+   Karaokê — animações específicas
+   ============================================= */
+
+/* Emoji voando para cima (versão CSS pura — fallback do framer-motion) */
+@keyframes emojiFloat {
+  0%   { transform: translateY(0) scale(0.5);   opacity: 1; }
+  40%  { opacity: 1; }
+  100% { transform: translateY(-220px) scale(1.6); opacity: 0; }
+}
+
+.emoji-float-anim {
+  animation: emojiFloat 3.5s ease-out forwards;
+}
+
+/* Pulse de destaque para "É SUA VEZ!" */
+@keyframes pulseHighlight {
+  0%, 100% { text-shadow: 0 0 20px rgba(236,72,153,0.8), 0 0 40px rgba(168,85,247,0.5); }
+  50%       { text-shadow: 0 0 40px rgba(236,72,153,1),   0 0 80px rgba(168,85,247,0.8), 0 0 120px rgba(236,72,153,0.4); }
+}
+
+.animate-karaoke-glow {
+  animation: pulseHighlight 1.2s ease-in-out infinite;
+}
+
+/* Scrollbar fina para área de letras no host */
+.scrollbar-thin::-webkit-scrollbar       { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thumb-purple-700::-webkit-scrollbar-thumb { background: #6d28d9; border-radius: 2px; }
+.scrollbar-track-transparent::-webkit-scrollbar-track { background: transparent; }
