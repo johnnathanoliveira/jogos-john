@@ -24,8 +24,14 @@ export async function GET(request: NextRequest) {
     response_type: 'code',
     redirect_uri:  REDIRECT_URI,
     state,
-    // Escopos mínimos para autenticação de usuário
-    scope: 'user-read-private user-read-email',
+    // Escopos necessários para o Web Playback SDK
+    scope: [
+      'streaming',                   // ← obrigatório para Web Playback SDK
+      'user-read-email',
+      'user-read-private',
+      'user-modify-playback-state',  // controlar play/pause/seek
+      'user-read-playback-state',    // ler estado atual
+    ].join(' '),
   })
 
   return NextResponse.redirect(

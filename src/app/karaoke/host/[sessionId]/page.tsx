@@ -13,7 +13,7 @@ const QRCodeSVG = dynamic(() => import('qrcode.react').then(m => m.QRCodeSVG), {
   loading: () => <div className="w-48 h-48 bg-white/10 animate-pulse rounded-xl" />,
 })
 
-// ── YouTube IFrame API types ──────────────────────────────
+// â”€â”€ YouTube IFrame API types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 declare global {
   interface Window {
     YT: { Player: new (el: HTMLElement, opts: Record<string, unknown>) => YTPlayer } & Record<string, unknown>
@@ -41,10 +41,10 @@ interface SpotifySDKPlayer {
 }
 interface SpotifyPlayState { position: number; duration: number; paused: boolean }
 
-// ── LRC utilities ─────────────────────────────────────────
+// â”€â”€ LRC utilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface LrcLine { time: number; text: string }
 
-/** Detecta se o texto está no formato LRC com timestamps */
+/** Detecta se o texto estÃ¡ no formato LRC com timestamps */
 function isLrc(s: string): boolean {
   // Ex: [00:30.13] ou [01:23:45] ou [1:23.456]
   return /\[\d{1,3}:\d{2}[.:,]\d+\]/m.test(s)
@@ -53,17 +53,17 @@ function isLrc(s: string): boolean {
 /** Converte texto LRC em array de linhas com tempo em segundos */
 function parseLrc(lrc: string): LrcLine[] {
   const lines: LrcLine[] = []
-  // Aceita [MM:SS.cs], [MM:SS:cs], [MM:SS,cs] com 1-3 dígitos decimais
+  // Aceita [MM:SS.cs], [MM:SS:cs], [MM:SS,cs] com 1-3 dÃ­gitos decimais
   const re = /\[(\d{1,3}):(\d{2})[.:,](\d{1,3})\][^\n]*/gm
   let m
   while ((m = re.exec(lrc)) !== null) {
     const min = parseInt(m[1], 10)
     const sec = parseInt(m[2], 10)
-    // Normaliza para ms: "13" → 130ms, "1" → 100ms, "130" → 130ms
+    // Normaliza para ms: "13" â†’ 130ms, "1" â†’ 100ms, "130" â†’ 130ms
     const raw = m[3]
     const ms = parseInt(raw.length === 1 ? raw + '00' : raw.length === 2 ? raw + '0' : raw, 10)
     const t = min * 60 + sec + ms / 1000
-    // Remove o timestamp da linha para pegar só o texto
+    // Remove o timestamp da linha para pegar sÃ³ o texto
     const text = m[0].replace(/\[\d{1,3}:\d{2}[.:,]\d+\]/g, '').trim()
     if (text) lines.push({ time: t, text })
   }
@@ -72,9 +72,9 @@ function parseLrc(lrc: string): LrcLine[] {
 
 interface FloatingEmoji { id: string; emoji: string; x: number; playerName: string }
 
-// ══════════════════════════════════════════════════════════
-// Página principal
-// ══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// PÃ¡gina principal
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export default function KaraokeHostPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const router = useRouter()
@@ -86,20 +86,20 @@ export default function KaraokeHostPage() {
   const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([])
   const [playerUrl,      setPlayerUrl]      = useState('')
   const [loadError,      setLoadError]      = useState(false)
-  // Letras buscadas em tempo real para músicas sem letra salva
+  // Letras buscadas em tempo real para mÃºsicas sem letra salva
   const [liveLyrics,     setLiveLyrics]     = useState<Record<string, string>>({})
-  // Conexão Spotify do host (OAuth — para letras sincronizadas de alta qualidade)
+  // ConexÃ£o Spotify do host (OAuth â€” para letras sincronizadas de alta qualidade)
   const [spotifyConnected, setSpotifyConnected] = useState(false)
 
   const emojiChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
-  // Verifica status do Spotify + detecta redirect após OAuth
+  // Verifica status do Spotify + detecta redirect apÃ³s OAuth
   useEffect(() => {
     fetch('/api/spotify/status').then(r => r.json()).then(d => {
       if (d.connected) setSpotifyConnected(true)
     }).catch(() => {})
 
-    // Redirigido de volta após autenticação
+    // Redirigido de volta apÃ³s autenticaÃ§Ã£o
     const url = new URL(window.location.href)
     if (url.searchParams.has('spotify_connected')) {
       setSpotifyConnected(true)
@@ -167,7 +167,7 @@ export default function KaraokeHostPage() {
     return () => { supabase.removeChannel(ch) }
   }, [sessionId])
 
-  // Emojis broadcast — config explícita para garantir recebimento
+  // Emojis broadcast â€” config explÃ­cita para garantir recebimento
   useEffect(() => {
     const ch = supabase
       .channel(`karaoke-emoji-${sessionId}`, {
@@ -184,7 +184,7 @@ export default function KaraokeHostPage() {
     return () => { supabase.removeChannel(ch) }
   }, [sessionId])
 
-  // Ações
+  // AÃ§Ãµes
   const allReady         = players.length > 0 && players.every(p => p.is_ready)
   const allSongsSelected = players.length > 0 && players.every(p => songs.some(s => s.player_id === p.id))
   const currentSong      = songs.find(s => s.status === 'singing') ?? null
@@ -192,7 +192,7 @@ export default function KaraokeHostPage() {
   const doneSongs        = songs.filter(s => s.status === 'done')
   const currentAvg       = currentSong ? avgRating(ratings, currentSong.id) : 0
 
-  // Busca letras em tempo real se a música atual não tiver letra salva
+  // Busca letras em tempo real se a mÃºsica atual nÃ£o tiver letra salva
   useEffect(() => {
     if (!currentSong) return
     if (currentSong.lyrics) return
@@ -205,7 +205,7 @@ export default function KaraokeHostPage() {
         await supabase.from('karaoke_songs').update({ lyrics }).eq('id', currentSong!.id)
       }
 
-      // ── Prioridade 1: Spotify OAuth (letras sincronizadas perfeitas) ──
+      // â”€â”€ Prioridade 1: Spotify OAuth (letras sincronizadas perfeitas) â”€â”€
       if (spotifyConnected && currentSong!.spotify_track_id) {
         try {
           const r = await fetch(`/api/spotify/lyrics?trackId=${currentSong!.spotify_track_id}`)
@@ -215,7 +215,7 @@ export default function KaraokeHostPage() {
         } catch {}
       }
 
-      // ── Prioridade 2: lrclib (fallback gratuito) ──────────────────────
+      // â”€â”€ Prioridade 2: lrclib (fallback gratuito) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       try {
         const params = new URLSearchParams({ artist: currentSong!.artist ?? '', title: currentSong!.song_title })
         const r = await fetch(`/api/lyrics?${params}`)
@@ -244,9 +244,9 @@ export default function KaraokeHostPage() {
   if (loadError) return (
     <div className="min-h-screen bg-[#0a0a1a] flex items-center justify-center">
       <div className="text-center">
-        <p className="text-4xl mb-4">😕</p>
-        <p className="text-white mb-4">Sala não encontrada.</p>
-        <button className="btn-primary" onClick={() => router.push('/')}>Início</button>
+        <p className="text-4xl mb-4">ðŸ˜•</p>
+        <p className="text-white mb-4">Sala nÃ£o encontrada.</p>
+        <button className="btn-primary" onClick={() => router.push('/')}>InÃ­cio</button>
       </div>
     </div>
   )
@@ -258,22 +258,18 @@ export default function KaraokeHostPage() {
   return (
     <SingingScreen
       currentSong={currentSong}
-      queuedSongs={queuedSongs}
-      doneSongs={doneSongs}
       floatingEmojis={floatingEmojis}
       avgRatingValue={currentAvg}
       ratingCount={ratings.filter(r => r.song_id === currentSong.id).length}
-      liveLyrics={liveLyrics[currentSong.id] ?? null}
-      spotifyConnected={spotifyConnected}
       onNext={nextSong}
       onBack={() => { if (confirm('Encerrar o jogo?')) router.push('/') }}
     />
   )
 }
 
-// ══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Loading
-// ══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function Loading() {
   return (
     <div className="min-h-screen bg-[#0a0a1a] flex items-center justify-center flex-col gap-4">
@@ -284,9 +280,9 @@ function Loading() {
   )
 }
 
-// ══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Lobby
-// ══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function LobbyScreen({ players, playerUrl, allReady, sessionId, onStart, onBack, spotifyConnected, onSpotifyConnect }: {
   players: Player[]; playerUrl: string; allReady: boolean; sessionId: string
   onStart: () => void; onBack: () => void
@@ -297,10 +293,10 @@ function LobbyScreen({ players, playerUrl, allReady, sessionId, onStart, onBack,
     <div className="min-h-screen bg-gradient-to-b from-purple-950 via-[#0a0a1a] to-[#0a0a1a] p-6 md:p-10">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10 relative">
         <button onClick={onBack} className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-sm flex items-center gap-1 group transition-colors">
-          <span className="group-hover:-translate-x-1 transition-transform">←</span> Voltar
+          <span className="group-hover:-translate-x-1 transition-transform">â†</span> Voltar
         </button>
-        <div className="text-5xl mb-2">🎤</div>
-        <h1 className="text-6xl md:text-7xl font-black tracking-widest bg-gradient-to-r from-pink-400 to-purple-500 bg-clip-text text-transparent">KARAOKÊ</h1>
+        <div className="text-5xl mb-2">ðŸŽ¤</div>
+        <h1 className="text-6xl md:text-7xl font-black tracking-widest bg-gradient-to-r from-pink-400 to-purple-500 bg-clip-text text-transparent">KARAOKÃŠ</h1>
         <p className="text-purple-300 text-sm mt-1 tracking-widest uppercase">Sala do host</p>
       </motion.div>
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -312,7 +308,7 @@ function LobbyScreen({ players, playerUrl, allReady, sessionId, onStart, onBack,
             </div>
             {players.length === 0 ? (
               <div className="text-center py-8">
-                <motion.div animate={{ opacity: [0.4,1,0.4] }} transition={{ duration: 2, repeat: Infinity }} className="text-4xl mb-3">📱</motion.div>
+                <motion.div animate={{ opacity: [0.4,1,0.4] }} transition={{ duration: 2, repeat: Infinity }} className="text-4xl mb-3">ðŸ“±</motion.div>
                 <p className="text-gray-500 text-sm">Aguardando jogadores escanearem o QR Code...</p>
               </div>
             ) : (
@@ -340,7 +336,7 @@ function LobbyScreen({ players, playerUrl, allReady, sessionId, onStart, onBack,
           {players.length > 0 && <p className="text-center text-gray-500 text-sm mb-3">{readyCount}/{players.length} prontos</p>}
           <motion.button onClick={onStart} disabled={!allReady} whileHover={allReady ? { scale: 1.03 } : {}} whileTap={allReady ? { scale: 0.97 } : {}}
             className={`w-full py-4 rounded-2xl font-black text-xl tracking-wider transition-all duration-300 ${allReady ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/30' : 'bg-white/5 text-gray-600 cursor-not-allowed border border-white/10'}`}>
-            {allReady ? '🎤 INICIAR KARAOKÊ!' : 'Aguardando todos ficarem prontos...'}
+            {allReady ? 'ðŸŽ¤ INICIAR KARAOKÃŠ!' : 'Aguardando todos ficarem prontos...'}
           </motion.button>
 
           {/* Conectar Spotify para letras sincronizadas */}
@@ -348,12 +344,12 @@ function LobbyScreen({ players, playerUrl, allReady, sessionId, onStart, onBack,
             {spotifyConnected ? (
               <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600/10 border border-emerald-600/25">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-emerald-400 text-sm font-semibold">Spotify conectado — letras sincronizadas ativas! 🎵</span>
+                <span className="text-emerald-400 text-sm font-semibold">Spotify conectado â€” letras sincronizadas ativas! ðŸŽµ</span>
               </div>
             ) : (
               <button onClick={onSpotifyConnect}
                 className="w-full py-2.5 rounded-xl flex items-center justify-center gap-2 bg-[#1DB954]/10 hover:bg-[#1DB954]/20 border border-[#1DB954]/30 text-[#1DB954] text-sm font-semibold transition-colors">
-                <span>🎵</span>
+                <span>ðŸŽµ</span>
                 Conectar Spotify para letras sincronizadas
                 <span className="text-xs opacity-60">(recomendado)</span>
               </button>
@@ -362,13 +358,13 @@ function LobbyScreen({ players, playerUrl, allReady, sessionId, onStart, onBack,
         </motion.div>
         <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="flex flex-col items-center">
           <div className="bg-white/5 rounded-3xl p-8 border border-white/10 text-center w-full max-w-sm mx-auto">
-            <p className="text-gray-400 text-sm uppercase tracking-widest mb-6 font-semibold">📱 Escaneie para entrar</p>
+            <p className="text-gray-400 text-sm uppercase tracking-widest mb-6 font-semibold">ðŸ“± Escaneie para entrar</p>
             <div className="bg-white p-4 rounded-2xl inline-block mb-6 shadow-2xl">
               {playerUrl ? <QRCodeSVG value={playerUrl} size={200} bgColor="#ffffff" fgColor="#0a0a1a" level="M" />
                 : <div className="w-[200px] h-[200px] bg-gray-100 animate-pulse rounded-lg flex items-center justify-center"><span className="text-gray-400 text-xs">Gerando...</span></div>}
             </div>
             {playerUrl?.includes('localhost') && (
-              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-3 py-2 mb-4 text-xs text-yellow-300">⚠️ Use o IP da máquina para o QR funcionar no celular.</div>
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-3 py-2 mb-4 text-xs text-yellow-300">âš ï¸ Use o IP da mÃ¡quina para o QR funcionar no celular.</div>
             )}
             <div className="bg-black/40 rounded-xl px-3 py-2 border border-white/10">
               <p className="text-pink-400 text-xs font-mono break-all">{playerUrl}</p>
@@ -380,9 +376,9 @@ function LobbyScreen({ players, playerUrl, allReady, sessionId, onStart, onBack,
   )
 }
 
-// ══════════════════════════════════════════════════════════
-// Seleção de músicas
-// ══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// SeleÃ§Ã£o de mÃºsicas
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function SongSelectionScreen({ players, songs, allSongsSelected, onStart, onBack }: {
   players: Player[]; songs: KaraokeSong[]; allSongsSelected: boolean; onStart: () => void; onBack: () => void
 }) {
@@ -391,16 +387,16 @@ function SongSelectionScreen({ players, songs, allSongsSelected, onStart, onBack
     <div className="min-h-screen bg-gradient-to-b from-purple-950 via-[#0a0a1a] to-[#0a0a1a] flex flex-col">
       <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
         <button onClick={onBack} className="text-gray-400 hover:text-white text-sm flex items-center gap-1 group transition-colors">
-          <span className="group-hover:-translate-x-1 transition-transform">←</span> Voltar
+          <span className="group-hover:-translate-x-1 transition-transform">â†</span> Voltar
         </button>
-        <h1 className="text-3xl font-black bg-gradient-to-r from-pink-400 to-purple-500 bg-clip-text text-transparent tracking-widest">KARAOKÊ</h1>
+        <h1 className="text-3xl font-black bg-gradient-to-r from-pink-400 to-purple-500 bg-clip-text text-transparent tracking-widest">KARAOKÃŠ</h1>
         <div />
       </div>
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 max-w-2xl mx-auto w-full gap-6">
-        <motion.div animate={{ rotate: [0,-8,8,0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }} className="text-7xl">🎵</motion.div>
+        <motion.div animate={{ rotate: [0,-8,8,0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }} className="text-7xl">ðŸŽµ</motion.div>
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white mb-1">Jogadores escolhendo músicas...</h2>
-          <p className="text-gray-400">{selectedCount}/{players.length} já escolheram</p>
+          <h2 className="text-2xl font-bold text-white mb-1">Jogadores escolhendo mÃºsicas...</h2>
+          <p className="text-gray-400">{selectedCount}/{players.length} jÃ¡ escolheram</p>
         </div>
         <div className="w-full space-y-3">
           {players.map((p, i) => {
@@ -412,8 +408,8 @@ function SongSelectionScreen({ players, songs, allSongsSelected, onStart, onBack
                 <div className={`w-10 h-10 rounded-full ${c.bg} flex items-center justify-center font-black text-white text-sm flex-shrink-0`}>{p.name[0].toUpperCase()}</div>
                 <div className="flex-1 min-w-0">
                   <p className="text-white font-semibold truncate">{p.name}</p>
-                  {song ? <p className="text-emerald-400 text-sm truncate">✓ {song.song_title}{song.artist ? ` — ${song.artist}` : ''}</p>
-                        : <p className="text-gray-500 text-sm animate-pulse">🔍 Buscando música...</p>}
+                  {song ? <p className="text-emerald-400 text-sm truncate">âœ“ {song.song_title}{song.artist ? ` â€” ${song.artist}` : ''}</p>
+                        : <p className="text-gray-500 text-sm animate-pulse">ðŸ” Buscando mÃºsica...</p>}
                 </div>
               </motion.div>
             )
@@ -421,332 +417,89 @@ function SongSelectionScreen({ players, songs, allSongsSelected, onStart, onBack
         </div>
         <motion.button onClick={onStart} disabled={!allSongsSelected} whileHover={allSongsSelected ? { scale: 1.03 } : {}} whileTap={allSongsSelected ? { scale: 0.97 } : {}}
           className={`w-full max-w-sm py-4 rounded-2xl font-black text-xl tracking-wider transition-all duration-300 ${allSongsSelected ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/30' : 'bg-white/5 text-gray-600 cursor-not-allowed border border-white/10'}`}>
-          {allSongsSelected ? '🎤 COMEÇAR A CANTAR!' : 'Aguardando todos escolherem...'}
+          {allSongsSelected ? 'ðŸŽ¤ COMEÃ‡AR A CANTAR!' : 'Aguardando todos escolherem...'}
         </motion.button>
       </div>
     </div>
   )
 }
 
-// ══════════════════════════════════════════════════════════
-// Canto — tela cheia + letras sincronizadas + bolhas
-// ══════════════════════════════════════════════════════════
-function SingingScreen({ currentSong, queuedSongs, doneSongs, floatingEmojis, avgRatingValue, ratingCount, liveLyrics, spotifyConnected, onNext, onBack }: {
-  currentSong: KaraokeSong; queuedSongs: KaraokeSong[]; doneSongs: KaraokeSong[]
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// Canto â€” tela cheia + letras sincronizadas + bolhas
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// Canto â€” YouTube karaokÃª em tela cheia (abordagem KaraoQ)
+// O vÃ­deo karaokÃª JÃ TEM: letra sincronizada + mÃºsica instrumental
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+function SingingScreen({ currentSong, floatingEmojis, avgRatingValue, ratingCount, onNext, onBack }: {
+  currentSong: KaraokeSong
   floatingEmojis: FloatingEmoji[]; avgRatingValue: number; ratingCount: number
-  liveLyrics: string | null; spotifyConnected: boolean
   onNext: () => void; onBack: () => void
 }) {
-  const [countdown,    setCountdown]    = useState<number | null>(3)
-  const [playbackTime, setPlaybackTime] = useState(0)
-  const [voiceLevel,   setVoiceLevel]   = useState(0.15)  // 0=sem voz  1=voz original
-  const [usingSpotify, setUsingSpotify] = useState(false)
+  const [countdown, setCountdown] = useState<number | null>(3)
 
-  const spotifyRef   = useRef<SpotifySDKPlayer | null>(null)
-  const deviceIdRef  = useRef<string | null>(null)
-  const tickRef      = useRef<ReturnType<typeof setInterval> | null>(null)
-  const ytRef        = useRef<YTPlayer | null>(null)
-  const ytContainerRef = useRef<HTMLDivElement>(null)
-  const audioCtxRef  = useRef<AudioContext | null>(null)
-
-  // ─── Reinicia ao trocar de música ────────────────────────
+  // â”€â”€â”€ Countdown e limpeza ao trocar de mÃºsica â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     setCountdown(3)
-    setPlaybackTime(0)
-    if (tickRef.current) clearInterval(tickRef.current)
-    ytRef.current?.destroy?.()
-    ytRef.current = null
-    spotifyRef.current?.pause?.()
-
     const t = [
       setTimeout(() => setCountdown(2), 1000),
       setTimeout(() => setCountdown(1), 2000),
       setTimeout(() => setCountdown(null), 3000),
     ]
-    return () => {
-      t.forEach(clearTimeout)
-      if (tickRef.current) clearInterval(tickRef.current)
-    }
+    return () => t.forEach(clearTimeout)
   }, [currentSong.id])
 
-  // ─── Inicializa Spotify Web Playback SDK ─────────────────
-  useEffect(() => {
-    const canUseSpotify = spotifyConnected && !!currentSong.spotify_track_id
-    setUsingSpotify(canUseSpotify)
-    if (!canUseSpotify) return
-
-    async function initSDK() {
-      // Busca token via API (httpOnly cookie não é acessível pelo JS)
-      const { token } = await fetch('/api/spotify/token').then(r => r.json())
-      if (!token) { setUsingSpotify(false); return }
-
-      // Destrói player anterior se existir
-      spotifyRef.current?.disconnect?.()
-
-      const player = new window.Spotify!.Player({
-        name: 'Jogos em Família — Karaokê',
-        getOAuthToken: async (cb) => {
-          const { token: t } = await fetch('/api/spotify/token').then(r => r.json())
-          cb(t ?? '')
-        },
-        volume: 0.85,
-      })
-
-      player.addListener('ready', async ({ device_id }) => {
-        deviceIdRef.current = device_id
-        // Transfere sessão Spotify para este dispositivo
-        await fetch('/api/spotify/play', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deviceId: device_id }),
-        })
-      })
-
-      player.addListener('player_state_changed', (state) => {
-        if (state && !state.paused) setPlaybackTime(state.position / 1000)
-      })
-
-      await player.connect()
-      spotifyRef.current = player
-    }
-
-    if (window.Spotify?.Player) {
-      initSDK()
-    } else {
-      if (!document.getElementById('spotify-sdk-script')) {
-        const s = document.createElement('script')
-        s.id = 'spotify-sdk-script'
-        s.src = 'https://sdk.scdn.co/spotify-player.js'
-        document.head.appendChild(s)
-      }
-      const prev = window.onSpotifyWebPlaybackSDKReady
-      window.onSpotifyWebPlaybackSDKReady = () => { prev?.(); initSDK() }
-    }
-  }, [currentSong.id, spotifyConnected]) // eslint-disable-line
-
-  // ─── Após countdown: inicia áudio + polling ───────────────
-  useEffect(() => {
-    if (countdown !== null) return
-
-    if (usingSpotify && currentSong.spotify_track_id) {
-      // Dá tempo ao SDK conectar (se ainda não conectou)
-      const startPlayback = async () => {
-        const deviceId = deviceIdRef.current
-        await fetch('/api/spotify/play', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ trackId: currentSong.spotify_track_id, deviceId }),
-        })
-
-        // Polling de posição para sync das letras (200ms)
-        if (tickRef.current) clearInterval(tickRef.current)
-        tickRef.current = setInterval(async () => {
-          const state = await spotifyRef.current?.getCurrentState()
-          if (state && !state.paused) setPlaybackTime(state.position / 1000)
-        }, 200)
-
-        // Phase cancellation: tenta conectar ao áudio do SDK
-        setTimeout(() => applyPhaseCancel(voiceLevel), 1500)
-      }
-
-      // Aguarda um pouco para o SDK estar pronto
-      const t = setTimeout(startPlayback, 800)
-      return () => { clearTimeout(t); if (tickRef.current) clearInterval(tickRef.current) }
-    }
-
-    // ─── Fallback: YouTube ────────────────────────────────
-    const videoId = currentSong.youtube_id
-
-    function startTimerFallback() {
-      const t0 = Date.now()
-      tickRef.current = setInterval(() => {
-        setPlaybackTime(Math.max(0, (Date.now() - t0) / 1000 - 2))
-      }, 100)
-    }
-
-    function createYT() {
-      if (!ytContainerRef.current) { startTimerFallback(); return }
-      ytContainerRef.current.innerHTML = ''
-      const el = document.createElement('div')
-      ytContainerRef.current.appendChild(el)
-      try {
-        ytRef.current = new window.YT.Player(el, {
-          height: '180', width: '320', videoId,
-          playerVars: { autoplay: 1, controls: 0, rel: 0, modestbranding: 1, playsinline: 1 },
-          events: {
-            onReady(ev: { target: YTPlayer }) {
-              ev.target.playVideo()
-              if (tickRef.current) clearInterval(tickRef.current)
-              tickRef.current = setInterval(() => {
-                try {
-                  const t = ev.target.getCurrentTime()
-                  if (typeof t === 'number') setPlaybackTime(Math.max(0, t))
-                } catch {}
-              }, 150)
-            },
-            onError() { startTimerFallback() },
-          },
-        })
-      } catch { startTimerFallback() }
-    }
-
-    let attempts = 0
-    const pollId = setInterval(() => {
-      attempts++
-      if (window.YT?.Player) { clearInterval(pollId); createYT() }
-      if (attempts > 80) { clearInterval(pollId); startTimerFallback() }
-    }, 100)
-
-    if (!document.getElementById('yt-api-script')) {
-      const s = document.createElement('script'); s.id = 'yt-api-script'
-      s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s)
-    }
-    const prevCb = window.onYouTubeIframeAPIReady
-    window.onYouTubeIframeAPIReady = () => { prevCb?.(); clearInterval(pollId); createYT() }
-
-    return () => {
-      clearInterval(pollId)
-      if (tickRef.current) clearInterval(tickRef.current)
-      ytRef.current?.destroy?.()
-    }
-  }, [countdown, usingSpotify, currentSong.id, currentSong.youtube_id, currentSong.spotify_track_id]) // eslint-disable-line
-
-  // ─── Phase Cancellation (redução de voz) ─────────────────
-  function applyPhaseCancel(vLevel: number) {
-    const audios = document.querySelectorAll<HTMLAudioElement>('audio:not([data-pc])')
-    for (const el of audios) {
-      try {
-        el.setAttribute('data-pc', '1')
-        // Reutiliza contexto se existir
-        const ctx = audioCtxRef.current ?? new AudioContext()
-        audioCtxRef.current = ctx
-        if (ctx.state === 'suspended') ctx.resume()
-
-        const source   = ctx.createMediaElementSource(el)
-        const splitter = ctx.createChannelSplitter(2)
-        const merger   = ctx.createChannelMerger(2)
-
-        // Canal invertido (cancela o centro = voz)
-        const invertR  = ctx.createGain(); invertR.gain.value = -1
-
-        // Sinal "cancelado" (sem voz): wet
-        const wet = ctx.createGain(); wet.gain.value = 1 - vLevel
-        // Sinal original: dry (pequena quantidade para manter harmônicos)
-        const dry = ctx.createGain(); dry.gain.value = vLevel
-
-        source.connect(splitter)
-        splitter.connect(merger, 0, 0)  // L normal
-        splitter.connect(invertR, 1)
-        invertR.connect(merger, 0, 1)   // R invertido → L-R = remove centro
-        merger.connect(wet)
-        wet.connect(ctx.destination)
-
-        source.connect(dry)
-        dry.connect(ctx.destination)
-
-        console.log('[Karaokê] Phase cancellation aplicado — voz:', Math.round(vLevel * 100) + '%')
-        break
-      } catch (e) {
-        console.warn('[Karaokê] Phase cancel falhou:', e)
-      }
-    }
-  }
-
-  // ─── Letras ───────────────────────────────────────────────
-  const rawLyrics = currentSong.lyrics || liveLyrics
-  const lrcLines  = useMemo(() => {
-    if (!rawLyrics) return null
-    if (!isLrc(rawLyrics)) return null
-    const p = parseLrc(rawLyrics)
-    return p.length > 1 ? p : null
-  }, [rawLyrics])
+  // URL do player com autoplay â€” karaokÃª sem voz, letra embutida no vÃ­deo
+  const playerSrc = countdown === null
+    ? `https://www.youtube-nocookie.com/embed/${currentSong.youtube_id}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1&color=white`
+    : null
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden select-none relative"
-      style={{ background: 'radial-gradient(ellipse at 30% 60%, #1a0030 0%, #06040f 55%, #010108 100%)' }}>
+    <div className="h-screen bg-black flex flex-col overflow-hidden select-none">
 
-      {/* ── Orbes de fundo animadas ── */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {currentSong.thumbnail && (
-          <img src={currentSong.thumbnail} alt="" aria-hidden
-            className="absolute inset-0 w-full h-full object-cover opacity-[0.07] blur-3xl scale-125"
-          />
-        )}
-        <motion.div className="absolute -top-32 left-1/4 w-96 h-96 rounded-full"
-          animate={{ scale: [1, 1.15, 1], opacity: [0.12, 0.2, 0.12] }}
-          transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
-          style={{ background: 'radial-gradient(circle, #ec4899, transparent 70%)', filter: 'blur(60px)' }}
-        />
-        <motion.div className="absolute -bottom-20 right-1/4 w-80 h-80 rounded-full"
-          animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.18, 0.1] }}
-          transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-          style={{ background: 'radial-gradient(circle, #7c3aed, transparent 70%)', filter: 'blur(60px)' }}
-        />
-      </div>
-
-      {/* ── Top bar ── */}
-      <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-black/80 border-b border-white/5 z-20">
-        <button onClick={onBack} className="text-gray-500 hover:text-gray-300 text-xs flex items-center gap-1 group transition-colors flex-shrink-0">
-          <span className="group-hover:-translate-x-1 transition-transform">←</span>
+      {/* â”€â”€ Top bar â”€â”€ */}
+      <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-black/90 border-b border-white/8 z-20">
+        <button onClick={onBack}
+          className="text-gray-500 hover:text-gray-300 text-xs flex items-center gap-1 group transition-colors flex-shrink-0">
+          <span className="group-hover:-translate-x-1 transition-transform">â†</span>
         </button>
         <div className="flex-1 min-w-0 flex items-center gap-2">
-          <span className="text-lg">🎤</span>
+          <span className="text-lg">ðŸŽ¤</span>
           <div className="min-w-0">
             <p className="text-white font-black text-sm leading-tight truncate">{currentSong.player_name}</p>
-            <p className="text-gray-500 text-xs truncate">{currentSong.song_title}{currentSong.artist ? ` — ${currentSong.artist}` : ''}</p>
+            <p className="text-gray-500 text-xs truncate">
+              {currentSong.song_title}{currentSong.artist ? ` â€” ${currentSong.artist}` : ''}
+            </p>
           </div>
         </div>
         <StarBadge value={avgRatingValue} count={ratingCount} />
-        {/* Modo de reprodução */}
-        {usingSpotify ? (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="flex items-center gap-1 bg-[#1DB954]/10 border border-[#1DB954]/25 rounded-full px-2 py-0.5">
-              <span className="text-[#1DB954] text-xs font-bold">🎵 Spotify</span>
-            </div>
-            {/* Slider de voz: 0 = sem voz / 1 = original */}
-            <div className="flex items-center gap-1 hidden sm:flex">
-              <span className="text-gray-600 text-xs">🔇</span>
-              <input
-                type="range" min={0} max={1} step={0.05}
-                value={voiceLevel}
-                onChange={e => setVoiceLevel(parseFloat(e.target.value))}
-                className="w-16 accent-pink-500"
-                title="Volume da voz"
-              />
-              <span className="text-gray-600 text-xs">🎤</span>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1 bg-red-900/20 border border-red-700/25 rounded-full px-2 py-0.5 flex-shrink-0">
-            <span className="text-red-400 text-xs font-bold">▶ YouTube</span>
-          </div>
-        )}
-        {/* Botão Próxima */}
         <motion.button onClick={onNext} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
           className="flex-shrink-0 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold px-4 py-1.5 rounded-xl text-sm shadow-lg flex items-center gap-1">
-          Próxima →
+          PrÃ³xima â†’
         </motion.button>
       </div>
 
-      {/* ── Área principal ── */}
-      <div className="flex-1 relative overflow-hidden">
+      {/* â”€â”€ Ãrea principal â”€â”€ */}
+      <div className="flex-1 relative overflow-hidden bg-black">
 
-        {/* Countdown FULL SCREEN */}
+        {/* Countdown â€” cobre tudo */}
         {countdown !== null && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#06040f]">
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center"
+            style={{ background: 'radial-gradient(ellipse at center, #0d0020 0%, #000 70%)' }}>
             {currentSong.thumbnail && (
-              <img src={currentSong.thumbnail} alt="" className="absolute inset-0 w-full h-full object-cover opacity-10" />
+              <img src={currentSong.thumbnail} alt=""
+                className="absolute inset-0 w-full h-full object-cover opacity-10 blur-3xl scale-110" />
             )}
             <div className="relative z-10 text-center px-8">
-              <p className="text-gray-300 text-sm uppercase tracking-widest mb-3">Preparando...</p>
-              <p className="text-white font-black text-3xl mb-1 truncate max-w-lg">{currentSong.song_title}</p>
-              {currentSong.artist && <p className="text-gray-400 text-lg mb-8">{currentSong.artist}</p>}
+              <p className="text-gray-400 text-sm uppercase tracking-widest mb-3">Preparando...</p>
+              <p className="text-white font-black text-2xl mb-1 truncate max-w-lg">{currentSong.song_title}</p>
+              {currentSong.artist && <p className="text-gray-400 text-base mb-8">{currentSong.artist}</p>}
               <AnimatePresence mode="wait">
                 <motion.div key={countdown}
                   initial={{ scale: 3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.3, opacity: 0 }} transition={{ duration: 0.25 }}
                   className="text-[11rem] font-black leading-none"
-                  style={{ background: 'linear-gradient(135deg,#ec4899,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 50px rgba(236,72,153,0.9))' }}>
+                  style={{ background: 'linear-gradient(135deg,#ec4899,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 60px rgba(236,72,153,1))' }}>
                   {countdown}
                 </motion.div>
               </AnimatePresence>
@@ -754,59 +507,32 @@ function SingingScreen({ currentSong, queuedSongs, doneSongs, floatingEmojis, av
           </div>
         )}
 
-        {/* Bolhas de emoji — cobrem TODA a área principal, z-50 */}
+        {/* YouTube karaokÃª â€” tela cheia */}
+        {playerSrc && (
+          <iframe
+            key={currentSong.id}
+            src={playerSrc}
+            className="absolute inset-0 w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            style={{ border: 'none' }}
+          />
+        )}
+
+        {/* Emojis flutuando sobre o vÃ­deo â€” z-50 */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden z-50">
           <AnimatePresence>
             {floatingEmojis.map(e => <EmojiBubble key={e.id} emoji={e.emoji} x={e.x} />)}
           </AnimatePresence>
         </div>
-
-        {/* Letras — só quando countdown terminou */}
-        {countdown === null && (
-          lrcLines
-            ? <KaraokeDisplay lines={lrcLines} currentTime={playbackTime} thumbnail={currentSong.thumbnail} />
-            : rawLyrics
-              ? <PlainLyricsDisplay lyrics={rawLyrics} />
-              : <div className="h-full flex flex-col items-center justify-end pb-20 text-center">
-                  <span className="text-5xl opacity-20 mb-4 block">🎵</span>
-                  <p className="text-gray-400 text-xl font-semibold">Buscando letra...</p>
-                  <p className="text-gray-600 text-sm mt-1">Se não encontrar, cante de cor!</p>
-                </div>
-        )}
       </div>
-
-      {/* Reprodutor de áudio */}
-      {countdown === null && (
-        usingSpotify ? (
-          /* Spotify: indicador discreto no canto */
-          <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2 bg-black/70 backdrop-blur-sm border border-[#1DB954]/30 rounded-xl px-3 py-2">
-            <div className="w-2 h-2 rounded-full bg-[#1DB954] animate-pulse" />
-            <span className="text-[#1DB954] text-xs font-semibold">Spotify</span>
-            <div className="flex gap-0.5 items-end h-4">
-              {[3,5,4,6,3,5,4].map((h, i) => (
-                <motion.div key={i}
-                  animate={{ height: [`${h}px`, `${h * 2}px`, `${h}px`] }}
-                  transition={{ duration: 0.8 + i * 0.1, repeat: Infinity, ease: 'easeInOut', delay: i * 0.1 }}
-                  className="w-0.5 bg-[#1DB954] rounded-full"
-                />
-              ))}
-            </div>
-          </div>
-        ) : (
-          /* YouTube: mini player visível */
-          <div className="fixed bottom-4 left-4 z-50 rounded-xl overflow-hidden shadow-2xl border border-white/20 bg-black"
-            style={{ width: '176px', height: '99px' }} title="Reprodutor de áudio">
-            <div ref={ytContainerRef} style={{ width: '176px', height: '99px' }} />
-          </div>
-        )
-      )}
     </div>
   )
 }
 
-// ══════════════════════════════════════════════════════════
-// Display de karaokê — wipe colorido (clip-path) + fundo thumbnail
-// ══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// Display de karaokÃª â€” wipe colorido (clip-path) + fundo thumbnail
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function KaraokeDisplay({ lines, currentTime, thumbnail }: { lines: LrcLine[]; currentTime: number; thumbnail?: string }) {
   let currentIdx = 0
   for (let i = 0; i < lines.length; i++) {
@@ -818,7 +544,7 @@ function KaraokeDisplay({ lines, currentTime, thumbnail }: { lines: LrcLine[]; c
   const nextLine    = lines[currentIdx + 1] ?? null
   const prevLine    = lines[currentIdx - 1] ?? null
 
-  // Progresso 0→1 dentro da linha atual
+  // Progresso 0â†’1 dentro da linha atual
   const nextTime = nextLine?.time ?? currentLine.time + 5
   const lineDur  = Math.max(0.5, nextTime - currentLine.time)
   const elapsed  = currentTime - currentLine.time
@@ -847,20 +573,20 @@ function KaraokeDisplay({ lines, currentTime, thumbnail }: { lines: LrcLine[]; c
           )}
         </AnimatePresence>
 
-        {/* ── Linha atual: wipe colorido esquerda→direita ── */}
+        {/* â”€â”€ Linha atual: wipe colorido esquerdaâ†’direita â”€â”€ */}
         <AnimatePresence mode="wait">
           <motion.div key={`cur-${currentIdx}`}
             initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.93 }} transition={{ duration: 0.22 }}
             className="relative text-center mb-4 w-full">
 
-            {/* Base (não cantado — escuro) */}
+            {/* Base (nÃ£o cantado â€” escuro) */}
             <p className="font-black leading-tight select-none"
               style={{ fontSize: 'clamp(2.2rem,5.5vw,4rem)', color: 'rgba(255,255,255,0.18)' }}>
               {currentLine.text}
             </p>
 
-            {/* Colorido — sweep via clip-path */}
+            {/* Colorido â€” sweep via clip-path */}
             <p className="absolute inset-0 font-black leading-tight select-none"
               style={{
                 fontSize: 'clamp(2.2rem,5.5vw,4rem)',
@@ -879,7 +605,7 @@ function KaraokeDisplay({ lines, currentTime, thumbnail }: { lines: LrcLine[]; c
             style={{ width: `${progress * 100}%`, background: 'linear-gradient(90deg,#ec4899,#fde68a)' }} />
         </div>
 
-        {/* Próxima linha */}
+        {/* PrÃ³xima linha */}
         <AnimatePresence>
           {nextLine && (
             <motion.p key={`next-${currentIdx}`}
@@ -894,7 +620,7 @@ function KaraokeDisplay({ lines, currentTime, thumbnail }: { lines: LrcLine[]; c
   )
 }
 
-// ── Fallback: letra simples (sem LRC) ──────────────────────
+// â”€â”€ Fallback: letra simples (sem LRC) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PlainLyricsDisplay({ lyrics }: { lyrics: string | null }) {
   return (
     <div className="h-full flex flex-col items-center justify-end pb-12 px-6 md:px-16">
@@ -906,18 +632,18 @@ function PlainLyricsDisplay({ lyrics }: { lyrics: string | null }) {
         </div>
       ) : (
         <div className="text-center">
-          <span className="text-6xl opacity-20 block mb-4">🎵</span>
-          <p className="text-gray-400 text-xl font-semibold">Letra não encontrada</p>
-          <p className="text-gray-600 text-sm mt-2">Cante de cor — você consegue!</p>
+          <span className="text-6xl opacity-20 block mb-4">ðŸŽµ</span>
+          <p className="text-gray-400 text-xl font-semibold">Letra nÃ£o encontrada</p>
+          <p className="text-gray-600 text-sm mt-2">Cante de cor â€” vocÃª consegue!</p>
         </div>
       )}
     </div>
   )
 }
 
-// ── Bolha de emoji ────────────────────────────────────────
+// â”€â”€ Bolha de emoji â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function EmojiBubble({ emoji, x }: { emoji: string; x: number }) {
-  // Cor aleatória para cada bolha (baseada no x para ser determinístico)
+  // Cor aleatÃ³ria para cada bolha (baseada no x para ser determinÃ­stico)
   const hue = Math.round(x * 3.6)   // 0-360 range
 
   return (
@@ -958,14 +684,14 @@ function EmojiBubble({ emoji, x }: { emoji: string; x: number }) {
   )
 }
 
-// ══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Fim de jogo
-// ══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function FinishedScreen({ songs, ratings, onNewGame }: { songs: KaraokeSong[]; ratings: KaraokeRating[]; onNewGame: () => void }) {
   const sorted = [...songs].sort((a, b) => avgRating(ratings, b.id) - avgRating(ratings, a.id))
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-950 via-[#0a0a1a] to-[#0a0a1a] flex flex-col items-center justify-center px-6 py-12">
-      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 12 }} className="text-8xl mb-6">🎤</motion.div>
+      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 12 }} className="text-8xl mb-6">ðŸŽ¤</motion.div>
       <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
         className="text-5xl md:text-6xl font-black text-transparent bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text mb-2 tracking-widest">
         SHOW ENCERRADO!
@@ -978,30 +704,30 @@ function FinishedScreen({ songs, ratings, onNewGame }: { songs: KaraokeSong[]; r
           return (
             <motion.div key={song.id} initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 + i * 0.08 }}
               className={`flex items-center gap-4 rounded-2xl px-5 py-4 border ${i === 0 ? 'bg-yellow-400/10 border-yellow-400/30' : 'bg-white/5 border-white/8'}`}>
-              <span className="text-2xl font-black w-8 text-center">{i === 0 ? '🏆' : `#${i+1}`}</span>
+              <span className="text-2xl font-black w-8 text-center">{i === 0 ? 'ðŸ†' : `#${i+1}`}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-white font-bold truncate">{song.player_name}</p>
                 <p className="text-gray-500 text-sm truncate">{song.song_title}</p>
               </div>
               <div className="text-right flex-shrink-0">
-                <div className="flex gap-0.5">{[1,2,3,4,5].map(s => <span key={s} className={`text-lg ${s<=Math.round(avg)?'text-yellow-400':'text-gray-700'}`}>★</span>)}</div>
-                <p className="text-white font-bold">{cnt > 0 ? avg.toFixed(1) : '—'}</p>
+                <div className="flex gap-0.5">{[1,2,3,4,5].map(s => <span key={s} className={`text-lg ${s<=Math.round(avg)?'text-yellow-400':'text-gray-700'}`}>â˜…</span>)}</div>
+                <p className="text-white font-bold">{cnt > 0 ? avg.toFixed(1) : 'â€”'}</p>
               </div>
             </motion.div>
           )
         })}
       </div>
-      <button onClick={onNewGame} className="btn-primary text-lg px-10 py-4 rounded-2xl">🎮 Novo Jogo</button>
+      <button onClick={onNewGame} className="btn-primary text-lg px-10 py-4 rounded-2xl">ðŸŽ® Novo Jogo</button>
     </div>
   )
 }
 
-// ── Helper ────────────────────────────────────────────────
+// â”€â”€ Helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function StarBadge({ value, count }: { value: number; count: number }) {
   return (
     <div className="flex items-center gap-1.5 bg-yellow-400/10 border border-yellow-400/20 rounded-full px-3 py-1 flex-shrink-0">
-      <span className="text-yellow-400 text-sm">★</span>
-      <span className="text-yellow-300 font-bold text-sm">{count > 0 ? value.toFixed(1) : '—'}</span>
+      <span className="text-yellow-400 text-sm">â˜…</span>
+      <span className="text-yellow-300 font-bold text-sm">{count > 0 ? value.toFixed(1) : 'â€”'}</span>
     </div>
   )
 }
