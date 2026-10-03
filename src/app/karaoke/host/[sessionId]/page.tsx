@@ -18,9 +18,28 @@ declare global {
   interface Window {
     YT: { Player: new (el: HTMLElement, opts: Record<string, unknown>) => YTPlayer } & Record<string, unknown>
     onYouTubeIframeAPIReady?: () => void
+    // Spotify Web Playback SDK
+    onSpotifyWebPlaybackSDKReady?: () => void
+    Spotify?: {
+      Player: new (opts: {
+        name: string
+        getOAuthToken: (cb: (token: string) => void) => void
+        volume?: number
+      }) => SpotifySDKPlayer
+    }
   }
 }
 interface YTPlayer { playVideo(): void; getCurrentTime(): number; destroy(): void }
+interface SpotifySDKPlayer {
+  connect(): Promise<boolean>
+  disconnect(): void
+  addListener(event: 'ready',                 cb: (d: { device_id: string }) => void): boolean
+  addListener(event: 'player_state_changed',  cb: (s: SpotifyPlayState | null) => void): boolean
+  getCurrentState(): Promise<SpotifyPlayState | null>
+  pause(): Promise<void>
+  resume(): Promise<void>
+}
+interface SpotifyPlayState { position: number; duration: number; paused: boolean }
 
 // ── LRC utilities ─────────────────────────────────────────
 interface LrcLine { time: number; text: string }
@@ -245,6 +264,7 @@ export default function KaraokeHostPage() {
       avgRatingValue={currentAvg}
       ratingCount={ratings.filter(r => r.song_id === currentSong.id).length}
       liveLyrics={liveLyrics[currentSong.id] ?? null}
+      spotifyConnected={spotifyConnected}
       onNext={nextSong}
       onBack={() => { if (confirm('Encerrar o jogo?')) router.push('/') }}
     />
@@ -411,72 +431,156 @@ function SongSelectionScreen({ players, songs, allSongsSelected, onStart, onBack
 // ══════════════════════════════════════════════════════════
 // Canto — tela cheia + letras sincronizadas + bolhas
 // ══════════════════════════════════════════════════════════
-function SingingScreen({ currentSong, queuedSongs, doneSongs, floatingEmojis, avgRatingValue, ratingCount, liveLyrics, onNext, onBack }: {
+function SingingScreen({ currentSong, queuedSongs, doneSongs, floatingEmojis, avgRatingValue, ratingCount, liveLyrics, spotifyConnected, onNext, onBack }: {
   currentSong: KaraokeSong; queuedSongs: KaraokeSong[]; doneSongs: KaraokeSong[]
   floatingEmojis: FloatingEmoji[]; avgRatingValue: number; ratingCount: number
-  liveLyrics: string | null
+  liveLyrics: string | null; spotifyConnected: boolean
   onNext: () => void; onBack: () => void
 }) {
   const [countdown,    setCountdown]    = useState<number | null>(3)
   const [playbackTime, setPlaybackTime] = useState(0)
-  const [syncOffset,   setSyncOffset]   = useState(0)
-  const [musicStarted, setMusicStarted] = useState(false)
-  const ytContainerRef = useRef<HTMLDivElement>(null)
-  const tickRef        = useRef<ReturnType<typeof setInterval> | null>(null)
-  const ytPlayerRef    = useRef<YTPlayer | null>(null)
-  const startTimeRef   = useRef<number>(0)
+  const [voiceLevel,   setVoiceLevel]   = useState(0.15)  // 0=sem voz  1=voz original
+  const [usingSpotify, setUsingSpotify] = useState(false)
 
-  // Reinicia ao trocar música
+  const spotifyRef   = useRef<SpotifySDKPlayer | null>(null)
+  const deviceIdRef  = useRef<string | null>(null)
+  const tickRef      = useRef<ReturnType<typeof setInterval> | null>(null)
+  const ytRef        = useRef<YTPlayer | null>(null)
+  const ytContainerRef = useRef<HTMLDivElement>(null)
+  const audioCtxRef  = useRef<AudioContext | null>(null)
+
+  // ─── Reinicia ao trocar de música ────────────────────────
   useEffect(() => {
     setCountdown(3)
     setPlaybackTime(0)
-    setSyncOffset(0)
-    setMusicStarted(false)
     if (tickRef.current) clearInterval(tickRef.current)
-    ytPlayerRef.current?.destroy?.()
-    ytPlayerRef.current = null
+    ytRef.current?.destroy?.()
+    ytRef.current = null
+    spotifyRef.current?.pause?.()
+
     const t = [
       setTimeout(() => setCountdown(2), 1000),
       setTimeout(() => setCountdown(1), 2000),
       setTimeout(() => setCountdown(null), 3000),
     ]
-    return () => { t.forEach(clearTimeout); if (tickRef.current) clearInterval(tickRef.current) }
+    return () => {
+      t.forEach(clearTimeout)
+      if (tickRef.current) clearInterval(tickRef.current)
+    }
   }, [currentSong.id])
 
-  // YouTube IFrame API após countdown (com fallback para timer)
+  // ─── Inicializa Spotify Web Playback SDK ─────────────────
+  useEffect(() => {
+    const canUseSpotify = spotifyConnected && !!currentSong.spotify_track_id
+    setUsingSpotify(canUseSpotify)
+    if (!canUseSpotify) return
+
+    async function initSDK() {
+      // Busca token via API (httpOnly cookie não é acessível pelo JS)
+      const { token } = await fetch('/api/spotify/token').then(r => r.json())
+      if (!token) { setUsingSpotify(false); return }
+
+      // Destrói player anterior se existir
+      spotifyRef.current?.disconnect?.()
+
+      const player = new window.Spotify!.Player({
+        name: 'Jogos em Família — Karaokê',
+        getOAuthToken: async (cb) => {
+          const { token: t } = await fetch('/api/spotify/token').then(r => r.json())
+          cb(t ?? '')
+        },
+        volume: 0.85,
+      })
+
+      player.addListener('ready', async ({ device_id }) => {
+        deviceIdRef.current = device_id
+        // Transfere sessão Spotify para este dispositivo
+        await fetch('/api/spotify/play', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceId: device_id }),
+        })
+      })
+
+      player.addListener('player_state_changed', (state) => {
+        if (state && !state.paused) setPlaybackTime(state.position / 1000)
+      })
+
+      await player.connect()
+      spotifyRef.current = player
+    }
+
+    if (window.Spotify?.Player) {
+      initSDK()
+    } else {
+      if (!document.getElementById('spotify-sdk-script')) {
+        const s = document.createElement('script')
+        s.id = 'spotify-sdk-script'
+        s.src = 'https://sdk.scdn.co/spotify-player.js'
+        document.head.appendChild(s)
+      }
+      const prev = window.onSpotifyWebPlaybackSDKReady
+      window.onSpotifyWebPlaybackSDKReady = () => { prev?.(); initSDK() }
+    }
+  }, [currentSong.id, spotifyConnected]) // eslint-disable-line
+
+  // ─── Após countdown: inicia áudio + polling ───────────────
   useEffect(() => {
     if (countdown !== null) return
 
+    if (usingSpotify && currentSong.spotify_track_id) {
+      // Dá tempo ao SDK conectar (se ainda não conectou)
+      const startPlayback = async () => {
+        const deviceId = deviceIdRef.current
+        await fetch('/api/spotify/play', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trackId: currentSong.spotify_track_id, deviceId }),
+        })
+
+        // Polling de posição para sync das letras (200ms)
+        if (tickRef.current) clearInterval(tickRef.current)
+        tickRef.current = setInterval(async () => {
+          const state = await spotifyRef.current?.getCurrentState()
+          if (state && !state.paused) setPlaybackTime(state.position / 1000)
+        }, 200)
+
+        // Phase cancellation: tenta conectar ao áudio do SDK
+        setTimeout(() => applyPhaseCancel(voiceLevel), 1500)
+      }
+
+      // Aguarda um pouco para o SDK estar pronto
+      const t = setTimeout(startPlayback, 800)
+      return () => { clearTimeout(t); if (tickRef.current) clearInterval(tickRef.current) }
+    }
+
+    // ─── Fallback: YouTube ────────────────────────────────
     const videoId = currentSong.youtube_id
 
     function startTimerFallback() {
-      // Timer fallback: assume música inicia ~2s após montar iframe
       const t0 = Date.now()
       tickRef.current = setInterval(() => {
-        const elapsed = (Date.now() - t0) / 1000 - 2 + syncOffset
-        setPlaybackTime(Math.max(0, elapsed))
+        setPlaybackTime(Math.max(0, (Date.now() - t0) / 1000 - 2))
       }, 100)
     }
 
-    function createYTPlayer() {
+    function createYT() {
       if (!ytContainerRef.current) { startTimerFallback(); return }
       ytContainerRef.current.innerHTML = ''
       const el = document.createElement('div')
       ytContainerRef.current.appendChild(el)
-
       try {
-        ytPlayerRef.current = new window.YT.Player(el, {
+        ytRef.current = new window.YT.Player(el, {
           height: '180', width: '320', videoId,
           playerVars: { autoplay: 1, controls: 0, rel: 0, modestbranding: 1, playsinline: 1 },
           events: {
             onReady(ev: { target: YTPlayer }) {
               ev.target.playVideo()
-              setMusicStarted(true)
               if (tickRef.current) clearInterval(tickRef.current)
               tickRef.current = setInterval(() => {
                 try {
                   const t = ev.target.getCurrentTime()
-                  if (typeof t === 'number') setPlaybackTime(Math.max(0, t + syncOffset))
+                  if (typeof t === 'number') setPlaybackTime(Math.max(0, t))
                 } catch {}
               }, 150)
             },
@@ -486,39 +590,69 @@ function SingingScreen({ currentSong, queuedSongs, doneSongs, floatingEmojis, av
       } catch { startTimerFallback() }
     }
 
-    // Poll até a API do YouTube estar disponível (máx 8s)
     let attempts = 0
     const pollId = setInterval(() => {
       attempts++
-      if (window.YT?.Player) { clearInterval(pollId); createYTPlayer() }
+      if (window.YT?.Player) { clearInterval(pollId); createYT() }
       if (attempts > 80) { clearInterval(pollId); startTimerFallback() }
     }, 100)
 
     if (!document.getElementById('yt-api-script')) {
-      const s = document.createElement('script')
-      s.id = 'yt-api-script'
-      s.src = 'https://www.youtube.com/iframe_api'
-      document.head.appendChild(s)
+      const s = document.createElement('script'); s.id = 'yt-api-script'
+      s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s)
     }
-
     const prevCb = window.onYouTubeIframeAPIReady
-    window.onYouTubeIframeAPIReady = () => { prevCb?.(); clearInterval(pollId); createYTPlayer() }
+    window.onYouTubeIframeAPIReady = () => { prevCb?.(); clearInterval(pollId); createYT() }
 
     return () => {
       clearInterval(pollId)
       if (tickRef.current) clearInterval(tickRef.current)
-      ytPlayerRef.current?.destroy?.()
+      ytRef.current?.destroy?.()
     }
-  }, [countdown, currentSong.youtube_id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [countdown, usingSpotify, currentSong.id, currentSong.youtube_id, currentSong.spotify_track_id]) // eslint-disable-line
 
-  // Sync offset: re-aplica ao tempo atual
-  useEffect(() => {
-    if (ytPlayerRef.current?.getCurrentTime) {
-      setPlaybackTime(Math.max(0, ytPlayerRef.current.getCurrentTime() + syncOffset))
+  // ─── Phase Cancellation (redução de voz) ─────────────────
+  function applyPhaseCancel(vLevel: number) {
+    const audios = document.querySelectorAll<HTMLAudioElement>('audio:not([data-pc])')
+    for (const el of audios) {
+      try {
+        el.setAttribute('data-pc', '1')
+        // Reutiliza contexto se existir
+        const ctx = audioCtxRef.current ?? new AudioContext()
+        audioCtxRef.current = ctx
+        if (ctx.state === 'suspended') ctx.resume()
+
+        const source   = ctx.createMediaElementSource(el)
+        const splitter = ctx.createChannelSplitter(2)
+        const merger   = ctx.createChannelMerger(2)
+
+        // Canal invertido (cancela o centro = voz)
+        const invertR  = ctx.createGain(); invertR.gain.value = -1
+
+        // Sinal "cancelado" (sem voz): wet
+        const wet = ctx.createGain(); wet.gain.value = 1 - vLevel
+        // Sinal original: dry (pequena quantidade para manter harmônicos)
+        const dry = ctx.createGain(); dry.gain.value = vLevel
+
+        source.connect(splitter)
+        splitter.connect(merger, 0, 0)  // L normal
+        splitter.connect(invertR, 1)
+        invertR.connect(merger, 0, 1)   // R invertido → L-R = remove centro
+        merger.connect(wet)
+        wet.connect(ctx.destination)
+
+        source.connect(dry)
+        dry.connect(ctx.destination)
+
+        console.log('[Karaokê] Phase cancellation aplicado — voz:', Math.round(vLevel * 100) + '%')
+        break
+      } catch (e) {
+        console.warn('[Karaokê] Phase cancel falhou:', e)
+      }
     }
-  }, [syncOffset])
+  }
 
-  // Letras: prioridade: DB → live fetch
+  // ─── Letras ───────────────────────────────────────────────
   const rawLyrics = currentSong.lyrics || liveLyrics
   const lrcLines  = useMemo(() => {
     if (!rawLyrics) return null
@@ -528,7 +662,27 @@ function SingingScreen({ currentSong, queuedSongs, doneSongs, floatingEmojis, av
   }, [rawLyrics])
 
   return (
-    <div className="h-screen bg-[#06040f] flex flex-col overflow-hidden select-none">
+    <div className="h-screen flex flex-col overflow-hidden select-none relative"
+      style={{ background: 'radial-gradient(ellipse at 30% 60%, #1a0030 0%, #06040f 55%, #010108 100%)' }}>
+
+      {/* ── Orbes de fundo animadas ── */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {currentSong.thumbnail && (
+          <img src={currentSong.thumbnail} alt="" aria-hidden
+            className="absolute inset-0 w-full h-full object-cover opacity-[0.07] blur-3xl scale-125"
+          />
+        )}
+        <motion.div className="absolute -top-32 left-1/4 w-96 h-96 rounded-full"
+          animate={{ scale: [1, 1.15, 1], opacity: [0.12, 0.2, 0.12] }}
+          transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ background: 'radial-gradient(circle, #ec4899, transparent 70%)', filter: 'blur(60px)' }}
+        />
+        <motion.div className="absolute -bottom-20 right-1/4 w-80 h-80 rounded-full"
+          animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.18, 0.1] }}
+          transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+          style={{ background: 'radial-gradient(circle, #7c3aed, transparent 70%)', filter: 'blur(60px)' }}
+        />
+      </div>
 
       {/* ── Top bar ── */}
       <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-black/80 border-b border-white/5 z-20">
@@ -543,13 +697,31 @@ function SingingScreen({ currentSong, queuedSongs, doneSongs, floatingEmojis, av
           </div>
         </div>
         <StarBadge value={avgRatingValue} count={ratingCount} />
-        {/* Ajuste de sincronismo ±1s */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <span className="text-gray-600 text-xs hidden sm:inline">Sync:</span>
-          <button onClick={() => setSyncOffset(o => o - 1)} className="text-gray-500 hover:text-yellow-400 text-xs px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10">-1s</button>
-          <button onClick={() => setSyncOffset(o => o + 1)} className="text-gray-500 hover:text-yellow-400 text-xs px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10">+1s</button>
-        </div>
-        {queuedSongs.length > 0 && <span className="text-gray-600 text-xs hidden md:block flex-shrink-0">{queuedSongs.length} na fila</span>}
+        {/* Modo de reprodução */}
+        {usingSpotify ? (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1 bg-[#1DB954]/10 border border-[#1DB954]/25 rounded-full px-2 py-0.5">
+              <span className="text-[#1DB954] text-xs font-bold">🎵 Spotify</span>
+            </div>
+            {/* Slider de voz: 0 = sem voz / 1 = original */}
+            <div className="flex items-center gap-1 hidden sm:flex">
+              <span className="text-gray-600 text-xs">🔇</span>
+              <input
+                type="range" min={0} max={1} step={0.05}
+                value={voiceLevel}
+                onChange={e => setVoiceLevel(parseFloat(e.target.value))}
+                className="w-16 accent-pink-500"
+                title="Volume da voz"
+              />
+              <span className="text-gray-600 text-xs">🎤</span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 bg-red-900/20 border border-red-700/25 rounded-full px-2 py-0.5 flex-shrink-0">
+            <span className="text-red-400 text-xs font-bold">▶ YouTube</span>
+          </div>
+        )}
+        {/* Botão Próxima */}
         <motion.button onClick={onNext} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
           className="flex-shrink-0 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold px-4 py-1.5 rounded-xl text-sm shadow-lg flex items-center gap-1">
           Próxima →
@@ -582,8 +754,8 @@ function SingingScreen({ currentSong, queuedSongs, doneSongs, floatingEmojis, av
           </div>
         )}
 
-        {/* Bolhas de emoji — sempre visíveis */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden z-40">
+        {/* Bolhas de emoji — cobrem TODA a área principal, z-50 */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-50">
           <AnimatePresence>
             {floatingEmojis.map(e => <EmojiBubble key={e.id} emoji={e.emoji} x={e.x} />)}
           </AnimatePresence>
@@ -603,15 +775,30 @@ function SingingScreen({ currentSong, queuedSongs, doneSongs, floatingEmojis, av
         )}
       </div>
 
-      {/* YouTube player — pequeno, visível no canto (necessário para IFrame API funcionar corretamente) */}
+      {/* Reprodutor de áudio */}
       {countdown === null && (
-        <div
-          className="fixed bottom-4 left-4 z-50 rounded-xl overflow-hidden shadow-2xl border border-white/20 bg-black"
-          style={{ width: '176px', height: '99px' }}
-          title="Reprodutor de áudio"
-        >
-          <div ref={ytContainerRef} style={{ width: '176px', height: '99px' }} />
-        </div>
+        usingSpotify ? (
+          /* Spotify: indicador discreto no canto */
+          <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2 bg-black/70 backdrop-blur-sm border border-[#1DB954]/30 rounded-xl px-3 py-2">
+            <div className="w-2 h-2 rounded-full bg-[#1DB954] animate-pulse" />
+            <span className="text-[#1DB954] text-xs font-semibold">Spotify</span>
+            <div className="flex gap-0.5 items-end h-4">
+              {[3,5,4,6,3,5,4].map((h, i) => (
+                <motion.div key={i}
+                  animate={{ height: [`${h}px`, `${h * 2}px`, `${h}px`] }}
+                  transition={{ duration: 0.8 + i * 0.1, repeat: Infinity, ease: 'easeInOut', delay: i * 0.1 }}
+                  className="w-0.5 bg-[#1DB954] rounded-full"
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          /* YouTube: mini player visível */
+          <div className="fixed bottom-4 left-4 z-50 rounded-xl overflow-hidden shadow-2xl border border-white/20 bg-black"
+            style={{ width: '176px', height: '99px' }} title="Reprodutor de áudio">
+            <div ref={ytContainerRef} style={{ width: '176px', height: '99px' }} />
+          </div>
+        )
       )}
     </div>
   )
@@ -730,12 +917,43 @@ function PlainLyricsDisplay({ lyrics }: { lyrics: string | null }) {
 
 // ── Bolha de emoji ────────────────────────────────────────
 function EmojiBubble({ emoji, x }: { emoji: string; x: number }) {
+  // Cor aleatória para cada bolha (baseada no x para ser determinístico)
+  const hue = Math.round(x * 3.6)   // 0-360 range
+
   return (
-    <motion.div className="absolute" style={{ left: `${Math.min(Math.max(x,4),88)}%`, bottom:'6%' }}
-      initial={{ y:0, scale:0, opacity:1 }}
-      animate={{ y:[0,-80,-200,-360,-520,'-88vh'], x:[0,-12,16,-8,14,0], scale:[0,1.2,1.05,1,1,1.9], opacity:[1,1,1,1,0.7,0] }}
-      transition={{ duration:4, ease:'easeOut', scale:{ times:[0,0.08,0.2,0.5,0.85,1] }, opacity:{ times:[0,0.1,0.4,0.75,0.9,1] }, x:{ times:[0,0.2,0.4,0.6,0.8,1] } }}>
-      <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-2xl shadow-xl shadow-black/30">{emoji}</div>
+    <motion.div
+      className="absolute"
+      style={{ left: `${Math.min(Math.max(x, 6), 86)}%`, bottom: '6%' }}
+      initial={{ y: 0, scale: 0, opacity: 1 }}
+      animate={{
+        y: [0, '-85vh'],
+        x: [0, -14, 20, -10, 6, 0],
+        scale: [0, 1.4, 1.05, 1.0, 1.0, 3.8],
+        opacity: [1, 1, 1, 1, 0.85, 0],
+      }}
+      transition={{
+        duration: 4.0,
+        ease: 'easeOut',
+        scale:   { times: [0, 0.07, 0.18, 0.5, 0.83, 1] },
+        opacity: { times: [0, 0.08, 0.3, 0.7, 0.87, 1] },
+        x:       { times: [0, 0.2, 0.4, 0.6, 0.8, 1] },
+      }}
+    >
+      {/* Bolha com vidro fosco e brilho colorido */}
+      <div
+        className="w-16 h-16 rounded-full flex items-center justify-center text-3xl relative"
+        style={{
+          background: `radial-gradient(circle at 35% 30%, hsla(${hue},100%,80%,0.35), hsla(${hue},80%,50%,0.1) 70%, transparent)`,
+          backdropFilter: 'blur(6px)',
+          border: `1.5px solid hsla(${hue},100%,75%,0.5)`,
+          boxShadow: `0 6px 24px rgba(0,0,0,0.4), 0 0 16px hsla(${hue},100%,60%,0.3), inset 0 1px 0 rgba(255,255,255,0.3)`,
+        }}
+      >
+        {/* Brilho interior */}
+        <div className="absolute top-2 left-3 w-6 h-3 rounded-full opacity-40"
+          style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.9), transparent)' }} />
+        <span className="relative z-10 drop-shadow-lg">{emoji}</span>
+      </div>
     </motion.div>
   )
 }

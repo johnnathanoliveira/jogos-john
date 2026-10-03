@@ -410,7 +410,24 @@ function SearchSongPhase({ sessionId, player, onConfirmed }: {
     if (!spotifyTrack || !selectedYt) { alert('Escolha um vídeo do YouTube.'); return }
     setSaving(true)
     try {
-      const lyrics = manualLyrics.trim() || foundLyrics
+      // Prioridade de letras:
+      // 1. Input manual do usuário
+      // 2. Legendas do YouTube (sync perfeito com o vídeo)
+      // 3. lrclib / Spotify (pode ter pequeno offset se a versão for diferente)
+      let finalLyrics = manualLyrics.trim() || null
+
+      if (!finalLyrics) {
+        // Tenta captions do YouTube
+        try {
+          const cr = await fetch(`/api/youtube/captions?videoId=${selectedYt.videoId}`)
+          const cd = await cr.json()
+          if (cd.lyrics) finalLyrics = cd.lyrics
+        } catch {}
+      }
+
+      // Se ainda não tem letra, usa o que foi buscado automaticamente (lrclib/Spotify)
+      if (!finalLyrics) finalLyrics = foundLyrics
+
       const { data, error } = await supabase.from('karaoke_songs').insert({
         session_id:       sessionId,
         player_id:        player.id,
@@ -419,7 +436,7 @@ function SearchSongPhase({ sessionId, player, onConfirmed }: {
         song_title:       spotifyTrack.name,
         artist:           spotifyTrack.artist,
         thumbnail:        spotifyTrack.imageUrl || selectedYt.thumbnail,
-        lyrics,
+        lyrics:           finalLyrics,
         // ID do Spotify — salvo para o host buscar letras sincronizadas via OAuth
         spotify_track_id: spotifyTrack.name !== 'Minha música' ? spotifyTrack.id : null,
       }).select('*').single()
