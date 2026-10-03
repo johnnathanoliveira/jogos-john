@@ -349,17 +349,42 @@ function SearchSongPhase({ sessionId, player, onConfirmed }: {
     setShowManual(false); setManualLyrics('')
     setShowPaste(false); setPasteUrl('')
 
-    const [ytRes, lyricsRes] = await Promise.allSettled([
-      fetch(`/api/youtube/search?q=${encodeURIComponent(`${track.artist} ${track.name} karaoke`)}`).then(r => r.json()),
+    // Busca paralela: YouTube (duas queries) + letras
+    // Query 1: "playback" (termo usado no gospel/MPB brasileiro)
+    // Query 2: "karaoke" (termo internacional)
+    // Combina e remove duplicatas, priorizando versões sem voz
+    const [ytKaraoke, ytPlayback, lyricsRes] = await Promise.allSettled([
+      fetch(`/api/youtube/search?q=${encodeURIComponent(`${track.name} karaoke instrumental`)}`).then(r => r.json()),
+      fetch(`/api/youtube/search?q=${encodeURIComponent(`${track.name} playback sem voz`)}`).then(r => r.json()),
       fetch(`/api/lyrics?artist=${encodeURIComponent(track.artist)}&title=${encodeURIComponent(track.name)}`).then(r => r.json()),
     ])
 
-    if (ytRes.status === 'fulfilled') {
-      if (ytRes.value.noKey) setNoYtKey(true)
-      else if (ytRes.value.results?.length > 0) {
-        setYoutubeOptions(ytRes.value.results)
-        setSelectedYt(ytRes.value.results[0])
+    // Combina resultados YouTube sem duplicatas
+    const seenIds = new Set<string>()
+    const mergedYt: YouTubeResult[] = []
+    const KARAOKE_KEYWORDS = /karaoke|karaokê|playback|instrumental|sem\s*voz|backing\s*track/i
+
+    for (const res of [ytKaraoke, ytPlayback]) {
+      if (res.status !== 'fulfilled') continue
+      if (res.value.noKey) { setNoYtKey(true); continue }
+      for (const r of (res.value.results ?? [])) {
+        if (!seenIds.has(r.videoId)) {
+          seenIds.add(r.videoId)
+          mergedYt.push(r)
+        }
       }
+    }
+
+    // Ordena: vídeos com palavras-chave de karaokê primeiro
+    mergedYt.sort((a, b) => {
+      const aIsKaraoke = KARAOKE_KEYWORDS.test(a.title) ? 1 : 0
+      const bIsKaraoke = KARAOKE_KEYWORDS.test(b.title) ? 1 : 0
+      return bIsKaraoke - aIsKaraoke
+    })
+
+    if (mergedYt.length > 0) {
+      setYoutubeOptions(mergedYt.slice(0, 6))
+      setSelectedYt(mergedYt[0])
     }
 
     if (lyricsRes.status === 'fulfilled' && lyricsRes.value.lyrics) {
@@ -578,7 +603,7 @@ function SearchSongPhase({ sessionId, player, onConfirmed }: {
       {/* Seleção de vídeo YouTube */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-gray-400 text-xs uppercase tracking-widest font-semibold">🎬 Vídeo karaokê</p>
+          <p className="text-gray-400 text-xs uppercase tracking-widest font-semibold">🎬 Vídeo karaokê (sem voz)</p>
           <button onClick={() => setShowPaste(p => !p)}
             className="text-purple-400 text-xs hover:text-purple-300 transition-colors">
             {showPaste ? '← Voltar' : '🔗 Colar link'}
@@ -596,7 +621,9 @@ function SearchSongPhase({ sessionId, player, onConfirmed }: {
           </div>
         ) : youtubeOptions.length > 0 ? (
           <div className="space-y-2">
-            {youtubeOptions.slice(0, 4).map(yt => (
+            {youtubeOptions.slice(0, 6).map(yt => {
+              const isKaraoke = /karaoke|karaokê|playback|instrumental|sem\s*voz/i.test(yt.title)
+              return (
               <button key={yt.videoId} onClick={() => setSelectedYt(yt)}
                 className={`w-full flex items-center gap-3 rounded-xl p-2.5 border text-left transition-colors ${
                   selectedYt?.videoId === yt.videoId
@@ -605,12 +632,20 @@ function SearchSongPhase({ sessionId, player, onConfirmed }: {
                 }`}>
                 <img src={yt.thumbnail} alt="" className="w-16 h-10 object-cover rounded-lg flex-shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-white text-xs font-semibold line-clamp-2 leading-snug">{yt.title}</p>
-                  <p className="text-gray-500 text-xs truncate">{yt.channelTitle}</p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {isKaraoke && (
+                      <span className="text-[10px] font-bold bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded px-1.5 py-0.5 flex-shrink-0">
+                        ✓ sem voz
+                      </span>
+                    )}
+                    <p className="text-white text-xs font-semibold line-clamp-2 leading-snug">{yt.title}</p>
+                  </div>
+                  <p className="text-gray-500 text-xs truncate mt-0.5">{yt.channelTitle}</p>
                 </div>
                 {selectedYt?.videoId === yt.videoId && <span className="text-purple-400 flex-shrink-0 font-bold">✓</span>}
               </button>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-3">

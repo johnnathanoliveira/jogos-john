@@ -592,7 +592,7 @@ function SingingScreen({ currentSong, queuedSongs, doneSongs, floatingEmojis, av
         {/* Letras — só quando countdown terminou */}
         {countdown === null && (
           lrcLines
-            ? <KaraokeDisplay lines={lrcLines} currentTime={playbackTime} />
+            ? <KaraokeDisplay lines={lrcLines} currentTime={playbackTime} thumbnail={currentSong.thumbnail} />
             : rawLyrics
               ? <PlainLyricsDisplay lyrics={rawLyrics} />
               : <div className="h-full flex flex-col items-center justify-end pb-20 text-center">
@@ -618,92 +618,91 @@ function SingingScreen({ currentSong, queuedSongs, doneSongs, floatingEmojis, av
 }
 
 // ══════════════════════════════════════════════════════════
-// Display de karaokê — estilo clássico: linha atual + próxima
+// Display de karaokê — wipe colorido (clip-path) + fundo thumbnail
 // ══════════════════════════════════════════════════════════
-function KaraokeDisplay({ lines, currentTime }: { lines: LrcLine[]; currentTime: number }) {
-  // Encontra a linha atual (última com time <= currentTime)
+function KaraokeDisplay({ lines, currentTime, thumbnail }: { lines: LrcLine[]; currentTime: number; thumbnail?: string }) {
   let currentIdx = 0
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].time <= currentTime) currentIdx = i
     else break
   }
 
-  // Determina o próximo tempo de mudança para exibir a barra de progresso
-  const currentLine    = lines[currentIdx]
-  const nextLine       = lines[currentIdx + 1] ?? null
-  const prevLine       = lines[currentIdx - 1] ?? null
-  const nextChangeTime = nextLine?.time ?? currentLine.time + 5
-  const lineDuration   = nextChangeTime - currentLine.time
-  const elapsed        = currentTime - currentLine.time
-  const progress       = Math.min(1, Math.max(0, elapsed / lineDuration))
+  const currentLine = lines[currentIdx]
+  const nextLine    = lines[currentIdx + 1] ?? null
+  const prevLine    = lines[currentIdx - 1] ?? null
+
+  // Progresso 0→1 dentro da linha atual
+  const nextTime = nextLine?.time ?? currentLine.time + 5
+  const lineDur  = Math.max(0.5, nextTime - currentLine.time)
+  const elapsed  = currentTime - currentLine.time
+  const progress = Math.min(1, Math.max(0, elapsed / lineDur))
 
   return (
-    <div className="h-full flex flex-col items-center justify-end pb-10 px-6 md:px-16">
-      {/* Espaço para emojis no topo */}
-      <div className="flex-1" />
+    <div className="h-full flex flex-col items-center justify-end pb-14 px-6 md:px-20 relative overflow-hidden">
+      {/* Thumbnail desfocada como fundo */}
+      {thumbnail && (
+        <img src={thumbnail} alt="" aria-hidden
+          className="absolute inset-0 w-full h-full object-cover opacity-25 blur-3xl scale-110 pointer-events-none select-none"
+        />
+      )}
+      {/* Escurece por cima */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#06040f] via-[#06040f]/80 to-[#06040f]/40 pointer-events-none" />
 
-      {/* Linha anterior (acima, desaparecendo) */}
-      <AnimatePresence>
-        {prevLine && (
-          <motion.p
-            key={`prev-${currentIdx}`}
-            initial={{ opacity: 0.3 }}
-            animate={{ opacity: 0.18 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="text-center text-white font-semibold mb-3 leading-tight"
-            style={{ fontSize: 'clamp(1rem, 2.5vw, 1.5rem)' }}
-          >
-            {prevLine.text}
-          </motion.p>
-        )}
-      </AnimatePresence>
+      <div className="relative z-10 w-full max-w-5xl mx-auto flex flex-col items-center">
+        {/* Linha anterior */}
+        <AnimatePresence>
+          {prevLine && (
+            <motion.p key={`prev-${currentIdx}`}
+              initial={{ opacity: 0.3 }} animate={{ opacity: 0.22 }} exit={{ opacity: 0, y: -10 }}
+              className="text-white text-xl md:text-2xl text-center font-semibold mb-5 leading-snug">
+              {prevLine.text}
+            </motion.p>
+          )}
+        </AnimatePresence>
 
-      {/* ─── Linha atual — destaque total ─── */}
-      <div className="text-center mb-3 w-full max-w-4xl">
-        {/* Barra de progresso da linha */}
-        <div className="h-1 rounded-full bg-white/10 mb-3 mx-auto max-w-xs overflow-hidden">
-          <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-pink-400 to-yellow-400"
-            animate={{ width: `${progress * 100}%` }}
-            transition={{ duration: 0.1, ease: 'linear' }}
-          />
+        {/* ── Linha atual: wipe colorido esquerda→direita ── */}
+        <AnimatePresence mode="wait">
+          <motion.div key={`cur-${currentIdx}`}
+            initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.93 }} transition={{ duration: 0.22 }}
+            className="relative text-center mb-4 w-full">
+
+            {/* Base (não cantado — escuro) */}
+            <p className="font-black leading-tight select-none"
+              style={{ fontSize: 'clamp(2.2rem,5.5vw,4rem)', color: 'rgba(255,255,255,0.18)' }}>
+              {currentLine.text}
+            </p>
+
+            {/* Colorido — sweep via clip-path */}
+            <p className="absolute inset-0 font-black leading-tight select-none"
+              style={{
+                fontSize: 'clamp(2.2rem,5.5vw,4rem)',
+                color: '#fde68a',
+                textShadow: '0 0 25px rgba(253,230,138,0.7), 0 0 50px rgba(253,230,138,0.3)',
+                clipPath: `inset(0 ${(1 - progress) * 100}% 0 0)`,
+              }}>
+              {currentLine.text}
+            </p>
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Barra de progresso */}
+        <div className="w-48 h-1.5 rounded-full bg-white/10 mb-5 overflow-hidden">
+          <div className="h-full rounded-full"
+            style={{ width: `${progress * 100}%`, background: 'linear-gradient(90deg,#ec4899,#fde68a)' }} />
         </div>
 
-        <AnimatePresence mode="wait">
-          <motion.p
-            key={`cur-${currentIdx}`}
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.9 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="font-black leading-tight"
-            style={{
-              fontSize: 'clamp(2rem, 5.5vw, 4rem)',
-              color: '#fde68a',
-              textShadow: '0 0 40px rgba(253,230,138,0.7), 0 0 80px rgba(253,230,138,0.3)',
-            }}
-          >
-            {currentLine.text}
-          </motion.p>
+        {/* Próxima linha */}
+        <AnimatePresence>
+          {nextLine && (
+            <motion.p key={`next-${currentIdx}`}
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 0.55 }} exit={{ opacity: 0 }}
+              className="text-white text-2xl md:text-3xl text-center font-bold leading-snug">
+              {nextLine.text}
+            </motion.p>
+          )}
         </AnimatePresence>
       </div>
-
-      {/* Próxima linha (preview abaixo) */}
-      <AnimatePresence>
-        {nextLine && (
-          <motion.p
-            key={`next-${currentIdx}`}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 0.55 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="text-white text-center font-semibold leading-tight"
-            style={{ fontSize: 'clamp(1.2rem, 3vw, 2rem)' }}
-          >
-            {nextLine.text}
-          </motion.p>
-        )}
-      </AnimatePresence>
     </div>
   )
 }
